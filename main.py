@@ -4,7 +4,7 @@ from src.views.login_view import build_login_view
 
 
 def main(page: ft.Page):
-    page.title = "Ninety Eight — Connexion"
+    page.title = "Ninety Eight — Log In"
     page.theme = get_app_theme()
     page.padding = 0
 
@@ -38,20 +38,20 @@ def main(page: ft.Page):
                 content=ft.Column(
                     controls=[
                         ft.Text(
-                            "Bienvenue",
+                            "Welcome",
                             size=28,
                             weight=ft.FontWeight.BOLD,
                             color=pal.text_title,
                         ),
                         ft.Text(
-                            f"Connecté en tant que {user_data.get('name', 'Utilisateur')} ({user_data.get('email', '')})",
+                            f"Signed in as {user_data.get('name', 'User')} ({user_data.get('email', '')})",
                             size=14,
                             color=pal.text_muted,
                         ),
                         ft.Container(height=12),
                         ft.Container(
                             content=ft.Text(
-                                "Se déconnecter",
+                                "Log Out",
                                 size=14,
                                 weight=ft.FontWeight.W_600,
                                 color="#FFFFFF",

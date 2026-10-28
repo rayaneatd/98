@@ -1,8 +1,8 @@
 # Ninety Eight (98%)
 
-Plateforme d'apprentissage technique axée sur la régularité et l'assiduité.
+Technical learning platform built for rigor, consistency, and accountability.
 
-## Lancement
+## Running Locally
 ```powershell
 uv run python main.py
 ```
