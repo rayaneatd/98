@@ -11,459 +11,303 @@ def build_onboarding_view(
     is_dark: bool,
 ):
     """
-    Candidate Formal Application & Curriculum Formulator (The Onboarding).
-    4 steps:
-    1. Skill Selection & Inter-correlation Thesis (Why this specific combo?)
-    2. Background Assessment & Baseline Proficiency
-    3. Study Schedule, Hours/Week & Blackout constraints
-    4. Target Examination Deadline & Matriculation Oath
+    Standardized, clean, classical admission questionnaire.
+    No gimmicky chips: realistic open text fields, standard radio inputs,
+    and formal collegiate layout.
     """
     pal = Palette(is_dark)
 
-    current_step = [1]
-    application_data = {
-        "skills": ["Python", "SQL"],
-        "thesis": "",
-        "background": "self_taught",
-        "baseline": "beginner",
-        "hours_per_week": 15,
-        "slot": "evenings",
-        "blackout_days": "None",
-        "duration_days": 45,
-    }
+    user_email = user_data.get("email", "applicant@registry.internal")
+    app_id = f"APP-{(abs(hash(user_email)) % 900000) + 100000}"
 
-    container_body = ft.Container(expand=True)
+    error_banner = ft.Container(
+        content=ft.Text("", size=12, color="#991B1B"),
+        bgcolor="#FEE2E2" if not is_dark else "#450A0A",
+        border=ft.Border.all(1, "#F87171" if not is_dark else "#991B1B"),
+        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+        border_radius=3,
+        visible=False,
+    )
 
-    # Available skills chips
-    AVAILABLE_SKILLS = [
-        "Python", "SQL", "FastAPI", "Docker", "Meta Llama / LLMs",
-        "Vector Databases", "Git & CI/CD", "Data Structures", "System Design"
-    ]
+    # Question 1: Target Skills (Free Text Input)
+    skills_field = ft.TextField(
+        hint_text="e.g., Python, PostgreSQL, and FastAPI",
+        border={
+            ft.ControlState.DEFAULT: ft.OutlineInputBorder(border_radius=3, side=ft.BorderSide(1, pal.input_border)),
+            ft.ControlState.FOCUSED: ft.OutlineInputBorder(border_radius=3, side=ft.BorderSide(1.5, pal.primary)),
+        },
+        bgcolor=pal.input_bg,
+        color=pal.text_body,
+        hint_style=ft.TextStyle(size=12, color=pal.text_muted),
+        text_size=13,
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+    )
 
-    def update_step_view():
-        step = current_step[0]
-        step_indicator.content = ft.Row(
+    # Question 2: Academic & Professional Objective (Free Text Input)
+    objective_field = ft.TextField(
+        hint_text="Explain what specific technical problems you want to solve with these skills, and why they must be studied together.",
+        multiline=True,
+        min_lines=3,
+        max_lines=5,
+        border={
+            ft.ControlState.DEFAULT: ft.OutlineInputBorder(border_radius=3, side=ft.BorderSide(1, pal.input_border)),
+            ft.ControlState.FOCUSED: ft.OutlineInputBorder(border_radius=3, side=ft.BorderSide(1.5, pal.primary)),
+        },
+        bgcolor=pal.input_bg,
+        color=pal.text_body,
+        hint_style=ft.TextStyle(size=12, color=pal.text_muted),
+        text_size=13,
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+    )
+
+    # Question 3: Current Technical Background (Standard Radios)
+    background_radio = ft.RadioGroup(
+        content=ft.Column(
             controls=[
-                ft.Text(f"STEP {step} OF 4", size=11, weight=ft.FontWeight.W_800, color=pal.primary),
-                ft.Container(
-                    width=180,
-                    height=6,
-                    bgcolor=pal.border,
-                    border_radius=3,
-                    content=ft.Row(
-                        controls=[
-                            ft.Container(
-                                width=180 * (step / 4),
-                                height=6,
-                                bgcolor=pal.primary,
-                                border_radius=3,
-                            )
-                        ]
-                    ),
-                ),
+                ft.Radio(value="non_tech", label="Non-technical professional (Transitioning / Career switch)"),
+                ft.Radio(value="stem_student", label="STEM / Computer Science university student"),
+                ft.Radio(value="self_taught", label="Self-taught programmer (Foundations in progress)"),
+                ft.Radio(value="working_dev", label="Practicing developer looking to formalize gaps"),
             ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-        )
+            spacing=4,
+        ),
+        value="self_taught",
+    )
 
-        if step == 1:
-            render_step_1()
-        elif step == 2:
-            render_step_2()
-        elif step == 3:
-            render_step_3()
-        elif step == 4:
-            render_step_4()
+    # Question 4: Current Baseline Proficiency (Standard Radios)
+    proficiency_radio = ft.RadioGroup(
+        content=ft.Row(
+            controls=[
+                ft.Radio(value="beginner", label="Complete Beginner"),
+                ft.Radio(value="elementary", label="Elementary Syntax"),
+                ft.Radio(value="intermediate", label="Functional Knowledge"),
+            ],
+            spacing=16,
+        ),
+        value="elementary",
+    )
 
-        page.update()
+    # Question 5: Weekly Commitment (Standard Radios)
+    hours_radio = ft.RadioGroup(
+        content=ft.Row(
+            controls=[
+                ft.Radio(value="10", label="10 hrs/week (Part-Time)"),
+                ft.Radio(value="15", label="15 hrs/week (Standard)"),
+                ft.Radio(value="25", label="25+ hrs/week (Intensive)"),
+            ],
+            spacing=16,
+        ),
+        value="15",
+    )
 
-    # Step 1: Skills & Thesis
-    def render_step_1():
-        def toggle_skill(skill_name):
-            if skill_name in application_data["skills"]:
-                if len(application_data["skills"]) > 1:
-                    application_data["skills"].remove(skill_name)
-            else:
-                application_data["skills"].append(skill_name)
-            render_step_1()
+    # Question 6: Study Period & Final Examination Target (Standard Radios)
+    duration_radio = ft.RadioGroup(
+        content=ft.Row(
+            controls=[
+                ft.Radio(value="30", label="30 Days (Accelerated)"),
+                ft.Radio(value="45", label="45 Days (Standard)"),
+                ft.Radio(value="60", label="60 Days (Extended)"),
+            ],
+            spacing=16,
+        ),
+        value="45",
+    )
+
+    # Question 7: Honor Code & Attendance Compact
+    compact_checkbox = ft.Checkbox(
+        label="I certify that the information provided is accurate. I understand that attendance is tracked daily, missed milestones require written explanations, and graduation requires scoring at least 70% on the final proctored exam.",
+        value=True,
+    )
+
+    def handle_submit(e):
+        skills_val = skills_field.value.strip() if skills_field.value else ""
+        obj_val = objective_field.value.strip() if objective_field.value else ""
+
+        if not skills_val:
+            error_banner.content.value = "Error: Please specify the technical skills you wish to learn in Section 1."
+            error_banner.visible = True
             page.update()
+            return
 
-        chips = []
-        for s in AVAILABLE_SKILLS:
-            is_selected = s in application_data["skills"]
-            chips.append(
-                ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Icon(
-                                ft.Icons.CHECK if is_selected else ft.Icons.ADD,
-                                size=13,
-                                color="#FFFFFF" if is_selected else pal.text_body,
-                            ),
-                            ft.Text(
-                                s,
-                                size=12,
-                                weight=ft.FontWeight.W_600,
-                                color="#FFFFFF" if is_selected else pal.text_body,
-                            ),
-                        ],
-                        spacing=4,
-                    ),
-                    bgcolor=pal.primary if is_selected else pal.surface,
-                    border=ft.Border.all(1, pal.primary if is_selected else pal.border),
-                    border_radius=16,
-                    padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-                    ink=True,
-                    on_click=lambda e, name=s: toggle_skill(name),
-                )
-            )
+        if not obj_val:
+            error_banner.content.value = "Error: Please state your study objective in Section 2."
+            error_banner.visible = True
+            page.update()
+            return
 
-        thesis_input = ft.TextField(
-            hint_text="e.g. 'I need to master SQL and Python to build automated backend data ingestion pipelines for my job transition by summer.'",
-            multiline=True,
-            min_lines=3,
-            max_lines=4,
-            value=application_data["thesis"],
-            border={
-                ft.ControlState.DEFAULT: ft.OutlineInputBorder(border_radius=6, side=ft.BorderSide(1, pal.border)),
-                ft.ControlState.FOCUSED: ft.OutlineInputBorder(border_radius=6, side=ft.BorderSide(1.5, pal.primary)),
-            },
-            bgcolor=pal.input_bg,
-            color=pal.text_body,
-            hint_style=ft.TextStyle(size=12, color=pal.text_muted),
-            text_size=13,
-            on_change=lambda e: application_data.update({"thesis": e.control.value}),
-        )
+        if not compact_checkbox.value:
+            error_banner.content.value = "Error: You must accept the attendance compact in Section 7 to submit."
+            error_banner.visible = True
+            page.update()
+            return
 
-        combo_text = " + ".join(application_data["skills"])
+        # Success - prepare structured application data
+        # Split skills by comma or plus
+        raw_skills = [s.strip() for s in skills_val.replace("+", ",").split(",") if s.strip()]
+        if not raw_skills:
+            raw_skills = [skills_val]
 
-        container_body.content = ft.Column(
-            controls=[
-                ft.Text("1. Academic Major & Correlated Skills", size=18, weight=ft.FontWeight.BOLD, color=pal.text_title),
-                ft.Text(
-                    "Select the technologies that compose your unified curriculum. All skills must reinforce each other.",
-                    size=12,
-                    color=pal.text_muted,
-                ),
-                ft.Container(height=4),
-                ft.Text("Select Skills (Multiple allowed):", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                ft.Row(controls=chips, wrap=True, spacing=8),
-                ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.AUTO_AWESOME, size=16, color=pal.primary),
-                            ft.Text(f"Current Correlated Focus: {combo_text}", size=12, weight=ft.FontWeight.BOLD, color=pal.primary),
-                        ],
-                        spacing=8,
-                    ),
-                    bgcolor=f"{pal.primary}10",
-                    border=ft.Border.all(1, f"{pal.primary}33"),
-                    border_radius=6,
-                    padding=ft.Padding.all(10),
-                ),
-                ft.Container(height=4),
-                ft.Text(
-                    "State Your Vocational Thesis (Why these specific skills?):",
-                    size=12,
-                    weight=ft.FontWeight.W_700,
-                    color=pal.text_title,
-                ),
-                thesis_input,
-                ft.Text(
-                    "Note: The Autonomous Dean uses this thesis to reject procrastination and calibrate your makeup assignments.",
-                    size=10,
-                    color=pal.text_muted,
-                ),
-            ],
-            spacing=10,
-        )
+        application_payload = {
+            "skills": raw_skills,
+            "skills_raw": skills_val,
+            "thesis": obj_val,
+            "background": background_radio.value,
+            "baseline": proficiency_radio.value,
+            "hours_per_week": int(hours_radio.value),
+            "duration_days": int(duration_radio.value),
+            "slot": "evenings",
+        }
 
-    # Step 2: Background & Baseline
-    def render_step_2():
-        bg_radios = ft.RadioGroup(
-            content=ft.Column(
-                controls=[
-                    ft.Radio(value="cs_student", label="Computer Science / STEM Student"),
-                    ft.Radio(value="career_changer", label="Career Switcher (Transitioning from non-tech)"),
-                    ft.Radio(value="self_taught", label="Self-Taught / Independent Learner"),
-                    ft.Radio(value="junior_dev", label="Practicing Junior Developer (Upskilling)"),
-                ],
-                spacing=6,
-            ),
-            value=application_data["background"],
-            on_change=lambda e: application_data.update({"background": e.control.value}),
-        )
+        on_finish_onboarding(application_payload)
 
-        level_radios = ft.RadioGroup(
-            content=ft.Row(
-                controls=[
-                    ft.Radio(value="beginner", label="Absolute Beginner"),
-                    ft.Radio(value="intermediate", label="Some Syntax Knowledge"),
-                    ft.Radio(value="advanced_basics", label="Solid Fundamentals"),
-                ],
-                spacing=12,
-            ),
-            value=application_data["baseline"],
-            on_change=lambda e: application_data.update({"baseline": e.control.value}),
-        )
-
-        container_body.content = ft.Column(
-            controls=[
-                ft.Text("2. Candidate Background & Baseline Assessment", size=18, weight=ft.FontWeight.BOLD, color=pal.text_title),
-                ft.Text(
-                    "Help the curriculum engine determine whether to begin with conceptual scaffolding or jump directly to drills.",
-                    size=12,
-                    color=pal.text_muted,
-                ),
-                ft.Container(height=6),
-                ft.Text("What best describes your current technical background?", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                bg_radios,
-                ft.Container(height=6),
-                ft.Text("What is your current baseline on your selected technologies?", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                level_radios,
-            ],
-            spacing=10,
-        )
-
-    # Step 3: Schedule & Weekly Commitment
-    def render_step_3():
-        hours_slider = ft.Slider(
-            min=5,
-            max=40,
-            divisions=7,
-            value=application_data["hours_per_week"],
-            label="{value} hrs/week",
-            active_color=pal.primary,
-            on_change=lambda e: (
-                application_data.update({"hours_per_week": int(e.control.value)}),
-                hours_label.update(),
-            ),
-        )
-
-        hours_label = ft.Text(
-            f"Commitment: {application_data['hours_per_week']} hours per week",
-            size=13,
-            weight=ft.FontWeight.BOLD,
-            color=pal.primary,
-        )
-
-        slot_radios = ft.RadioGroup(
-            content=ft.Row(
-                controls=[
-                    ft.Radio(value="mornings", label="Early Mornings (6am - 9am)"),
-                    ft.Radio(value="evenings", label="Evenings (7pm - 11pm)"),
-                    ft.Radio(value="weekends", label="Weekend Concentrated"),
-                    ft.Radio(value="fulltime", label="Full-Time Flexible"),
-                ],
-                spacing=8,
-            ),
-            value=application_data["slot"],
-            on_change=lambda e: application_data.update({"slot": e.control.value}),
-        )
-
-        blackout_input = ft.TextField(
-            hint_text="e.g. 'Unavailable on Wednesdays due to late work shift'",
-            value=application_data["blackout_days"],
-            bgcolor=pal.input_bg,
-            color=pal.text_body,
-            text_size=13,
-            border={
-                ft.ControlState.DEFAULT: ft.OutlineInputBorder(border_radius=6, side=ft.BorderSide(1, pal.border)),
-                ft.ControlState.FOCUSED: ft.OutlineInputBorder(border_radius=6, side=ft.BorderSide(1.5, pal.primary)),
-            },
-            on_change=lambda e: application_data.update({"blackout_days": e.control.value}),
-        )
-
-        container_body.content = ft.Column(
-            controls=[
-                ft.Text("3. Weekly Capacity & Schedule Constraints", size=18, weight=ft.FontWeight.BOLD, color=pal.text_title),
-                ft.Text(
-                    "Attendance is strictly tracked. The system allocates daily lesson blocks based strictly on this schedule.",
-                    size=12,
-                    color=pal.text_muted,
-                ),
-                ft.Container(height=4),
-                hours_label,
-                hours_slider,
-                ft.Container(height=4),
-                ft.Text("Primary Study Slot:", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                slot_radios,
-                ft.Container(height=4),
-                ft.Text("Blackout / Reserved Days (When the AI will NOT schedule sessions):", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                blackout_input,
-            ],
-            spacing=8,
-        )
-
-    # Step 4: Examination Deadline & Oath
-    def render_step_4():
-        duration_radios = ft.RadioGroup(
-            content=ft.Row(
-                controls=[
-                    ft.Radio(value="30", label="30 Days (Commando Track)"),
-                    ft.Radio(value="45", label="45 Days (Standard Rigor)"),
-                    ft.Radio(value="60", label="60 Days (Comprehensive)"),
-                ],
-                spacing=16,
-            ),
-            value=str(application_data["duration_days"]),
-            on_change=lambda e: application_data.update({"duration_days": int(e.control.value)}),
-        )
-
-        oath_box = ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.VERIFIED, size=20, color=pal.primary),
-                            ft.Text(
-                                "MATRICULATION OATH & DISCIPLINARY COMPACT",
-                                size=12,
-                                weight=ft.FontWeight.BOLD,
-                                color=pal.text_title,
-                            ),
-                        ],
-                        spacing=8,
-                    ),
-                    ft.Text(
-                        "1. I acknowledge that I cannot course-hop; my curriculum is locked to my selected major.\n"
-                        "2. In the event of missed milestones, I will submit formal written justifications to the AI Proctor.\n"
-                        "3. Unjustified absences will incur makeup penalty drills before new lessons unlock.\n"
-                        "4. Certification requires passing the final timed proctored exam with >= 70%.",
-                        size=11,
-                        color=pal.text_body,
-                    ),
-                ],
-                spacing=8,
-            ),
-            bgcolor=pal.surface,
-            border=ft.Border.all(1, pal.border),
-            border_radius=6,
-            padding=ft.Padding.all(14),
-        )
-
-        container_body.content = ft.Column(
-            controls=[
-                ft.Text("4. Target Examination Deadline & Matriculation Oath", size=18, weight=ft.FontWeight.BOLD, color=pal.text_title),
-                ft.Text(
-                    "Upon deadline expiration, the Pearson VUE-style certification test will be scheduled.",
-                    size=12,
-                    color=pal.text_muted,
-                ),
-                ft.Container(height=4),
-                ft.Text("Choose Curricular Duration to Final Exam:", size=12, weight=ft.FontWeight.W_700, color=pal.text_title),
-                duration_radios,
-                ft.Container(height=6),
-                oath_box,
-            ],
-            spacing=10,
-        )
-
-    def handle_next(e):
-        if current_step[0] < 4:
-            current_step[0] += 1
-            update_step_view()
-        else:
-            on_finish_onboarding(application_data)
-
-    def handle_prev(e):
-        if current_step[0] > 1:
-            current_step[0] -= 1
-            update_step_view()
-        else:
-            on_back_to_portal()
-
-    # Step Indicator
-    step_indicator = ft.Container(padding=ft.Padding.only(bottom=10))
-
-    # Top Mini Bar
-    top_bar = ft.Container(
+    # Masthead for form
+    form_masthead = ft.Container(
         content=ft.Row(
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=18, color="#FFFFFF"),
+                        ft.Icon(ft.Icons.SCHOOL, size=18, color="#FFFFFF"),
                         ft.Text(
-                            "NINETY EIGHT  |  FORMAL CANDIDATE DOSSIER  |  CURRICULUM FORMULATION",
-                            size=11,
-                            weight=ft.FontWeight.W_700,
+                            "NINETY EIGHT INSTITUTE — STANDARDIZED ADMISSION QUESTIONNAIRE",
+                            size=12,
+                            weight=ft.FontWeight.BOLD,
                             color="#FFFFFF",
                         ),
                     ],
-                    spacing=8,
+                    spacing=10,
                 ),
                 ft.TextButton(
-                    content=ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.ARROW_BACK, size=14, color="#FFFFFF"),
-                            ft.Text("Cancel to Portal", size=11, color="#FFFFFF"),
-                        ],
-                        spacing=4,
-                    ),
+                    content=ft.Text("Return to Portal", size=11, color="#FFFFFF"),
                     on_click=lambda e: on_back_to_portal(),
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         ),
-        bgcolor=pal.primary,
-        padding=ft.Padding.symmetric(horizontal=24, vertical=6),
+        bgcolor=pal.navbar,
+        padding=ft.Padding.symmetric(horizontal=24, vertical=8),
     )
 
-    # Nav Buttons
-    btn_row = ft.Row(
-        controls=[
-            ft.OutlinedButton(
-                "Previous Step",
-                on_click=handle_prev,
+    # Form Sections Helper
+    def form_section(num, title, subtitle, control):
+        return ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text(f"{num}. {title}", size=13, weight=ft.FontWeight.BOLD, color=pal.text_title),
+                    ft.Text(subtitle, size=11, color=pal.text_muted) if subtitle else ft.Container(),
+                    ft.Container(height=2),
+                    control,
+                ],
+                spacing=4,
             ),
-            ft.Container(
-                content=ft.Row(
-                    controls=[
-                        ft.Text("Proceed to Next Step", size=13, weight=ft.FontWeight.BOLD, color="#FFFFFF"),
-                        ft.Icon(ft.Icons.ARROW_FORWARD, size=14, color="#FFFFFF"),
-                    ],
-                    spacing=6,
-                ),
-                bgcolor=pal.primary,
-                border_radius=6,
-                padding=ft.Padding.symmetric(horizontal=20, vertical=12),
-                ink=True,
-                on_click=handle_next,
-            ),
-        ],
-        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-    )
+            padding=ft.Padding.only(bottom=14),
+        )
 
-    card_container = ft.Container(
+    # The Paper Sheet (Like a classical university printed application form)
+    form_sheet = ft.Container(
         content=ft.Column(
             controls=[
-                step_indicator,
-                container_body,
+                ft.Row(
+                    controls=[
+                        ft.Column(
+                            controls=[
+                                ft.Text("FORM ADM-2026: CURRICULUM PETITION & STUDY PLAN", size=16, weight=ft.FontWeight.BOLD, color=pal.text_title),
+                                ft.Text(f"Application File: {app_id} • Applicant: {user_email}", size=11, color=pal.text_muted),
+                            ],
+                            spacing=2,
+                        ),
+                        ft.Container(
+                            content=ft.Text("SECTION I OF I", size=10, weight=ft.FontWeight.BOLD, color=pal.text_muted),
+                            border=ft.Border.all(1, pal.border),
+                            padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                            border_radius=2,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
                 ft.Divider(height=1, color=pal.border),
-                btn_row,
+                error_banner,
+                form_section(
+                    "1",
+                    "Proposed Technical Skills",
+                    "Enter the technologies you want to study. You may list several (e.g., Python, SQL, Docker).",
+                    skills_field,
+                ),
+                form_section(
+                    "2",
+                    "Statement of Objective & Interdependence",
+                    "Explain why you selected these skills together and how they relate to your practical goals.",
+                    objective_field,
+                ),
+                form_section(
+                    "3",
+                    "Current Educational / Professional Background",
+                    "Select the category that most accurately describes your previous background.",
+                    background_radio,
+                ),
+                form_section(
+                    "4",
+                    "Self-Reported Baseline Proficiency",
+                    "Assess your current level in the technologies listed above.",
+                    proficiency_radio,
+                ),
+                form_section(
+                    "5",
+                    "Dedicated Weekly Study Capacity",
+                    "Estimate the active hours per week you will reserve for coursework and problem sets.",
+                    hours_radio,
+                ),
+                form_section(
+                    "6",
+                    "Target Term Duration to Final Proctored Exam",
+                    "Select the timeframe within which you commit to sitting the final comprehensive assessment.",
+                    duration_radio,
+                ),
+                form_section(
+                    "7",
+                    "Academic Honor & Attendance Compact",
+                    "",
+                    compact_checkbox,
+                ),
+                ft.Divider(height=1, color=pal.border),
+                ft.Row(
+                    controls=[
+                        ft.OutlinedButton(
+                            "Cancel & Discard",
+                            on_click=lambda e: on_back_to_portal(),
+                        ),
+                        ft.Container(
+                            content=ft.Text("Submit Formal Application", size=13, weight=ft.FontWeight.BOLD, color="#FFFFFF"),
+                            bgcolor=pal.secondary_green,
+                            border_radius=3,
+                            padding=ft.Padding.symmetric(horizontal=24, vertical=11),
+                            ink=True,
+                            on_click=handle_submit,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
             ],
-            spacing=14,
+            spacing=10,
         ),
-        width=780,
+        width=840,
         bgcolor=pal.card,
         border=ft.Border.all(1, pal.border),
-        border_radius=8,
-        padding=ft.Padding.all(24),
+        border_radius=4,
+        padding=ft.Padding.all(28),
         shadow=ft.BoxShadow(
             spread_radius=1,
-            blur_radius=12,
+            blur_radius=8,
             color=pal.shadow,
             offset=(0, 2),
         ),
     )
 
-    update_step_view()
-
     return ft.Column(
         controls=[
-            top_bar,
+            form_masthead,
             ft.Container(
-                content=card_container,
-                alignment=ft.Alignment.CENTER,
+                content=form_sheet,
+                alignment=ft.Alignment.TOP_CENTER,
                 padding=ft.Padding.symmetric(horizontal=16, vertical=20),
                 expand=True,
             ),

@@ -1,3 +1,4 @@
+import asyncio
 import flet as ft
 from src.theme import Palette
 
@@ -5,54 +6,268 @@ from src.theme import Palette
 def build_admissions_portal_view(
     page: ft.Page,
     user_data: dict,
-    on_start_application,
+    on_submit_plan,
     on_logout,
     on_toggle_theme,
     is_dark: bool,
 ):
     """
-    The Admissions & Registrar Portal of Ninety Eight Percent.
-    A private, automated technical academy enforcing single-cursus study.
+    Study Plan Application Form.
+    - Skills: Dynamic custom tags created on Enter.
+    - Objective: Free text.
+    - Background: Free text (past skills, academic/professional background).
+    - Schedule: Free text + native file picker (Images/PDFs up to 5MB).
+    - Duration Intent: Free text replacing rigid exam date.
+    FilePicker registered in page.services as required by Flet 1.0.5.
     """
     pal = Palette(is_dark)
+    user_email = user_data.get("email", "candidate@user.net")
 
-    user_name = user_data.get("name") or user_data.get("email", "Candidate").split("@")[0]
-    user_email = user_data.get("email", "candidate@ninetyeight.institute")
-    candidate_id = f"REG-2026-{(abs(hash(user_email)) % 90000) + 10000}"
+    # ─── Skills Tag System ───────────────────────────────────────────────────
+    skills_list = []
+    tags_row = ft.Row(wrap=True, spacing=6, run_spacing=6)
 
-    # Top Institutional Navbar
-    navbar = ft.Container(
+    def render_tags():
+        tags_row.controls.clear()
+        for s in skills_list:
+            tags_row.controls.append(
+                ft.Container(
+                    content=ft.Row(
+                        controls=[
+                            ft.Text(s, size=12, color=pal.text_title, weight=ft.FontWeight.W_500),
+                            ft.IconButton(
+                                icon=ft.Icons.CLOSE,
+                                icon_size=12,
+                                icon_color=pal.text_muted,
+                                padding=0,
+                                width=18,
+                                height=18,
+                                on_click=lambda e, name=s: remove_skill(name),
+                            ),
+                        ],
+                        spacing=2,
+                        tight=True,
+                    ),
+                    bgcolor=pal.surface,
+                    border=ft.Border.all(1, pal.border),
+                    border_radius=4,
+                    padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+                )
+            )
+        page.update()
+
+    def remove_skill(name):
+        if name in skills_list:
+            skills_list.remove(name)
+            render_tags()
+
+    def handle_skill_submit(e):
+        raw = (skill_input.value or "").strip()
+        if raw:
+            for part in [p.strip() for p in raw.replace("+", ",").split(",") if p.strip()]:
+                if part and part not in skills_list:
+                    skills_list.append(part)
+            skill_input.value = ""
+            render_tags()
+            skill_input.focus()
+
+    skill_input = ft.TextField(
+        hint_text="Type a skill and press Enter (e.g. Python, SQL, Docker)...",
+        bgcolor=pal.input_bg,
+        color=pal.text_body,
+        text_size=13,
+        border_color=pal.input_border,
+        focused_border_color=pal.accent,
+        border_radius=4,
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+        on_submit=handle_skill_submit,
+    )
+
+    # ─── Text Fields ─────────────────────────────────────────────────────────
+    def make_textarea(hint, min_l=3, max_l=8):
+        return ft.TextField(
+            hint_text=hint,
+            multiline=True,
+            min_lines=min_l,
+            max_lines=max_l,
+            bgcolor=pal.input_bg,
+            color=pal.text_body,
+            text_size=13,
+            border_color=pal.input_border,
+            focused_border_color=pal.accent,
+            border_radius=4,
+            content_padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+        )
+
+    objective_input = make_textarea(
+        "What do you plan to build or achieve with these skills? Why learn them together?"
+    )
+    background_input = make_textarea(
+        "Detail your current technical knowledge, academic/professional background, or anything you have self-taught so far."
+    )
+    schedule_input = make_textarea(
+        "Describe when you work, your available windows (e.g. evenings Mon–Fri), and any constraints your Teacher must know."
+    )
+    duration_input = make_textarea(
+        "How long would you like to spend mastering these skills? Describe your ideal learning pace, any fixed deadline you have in mind, or why you want to reach a certain level by a certain point.",
+        min_l=2,
+        max_l=5,
+    )
+
+    # ─── File Upload (Flet 1.0.5 Service Pattern) ────────────────────────────
+    uploaded_files = []
+    files_column = ft.Column(spacing=4)
+    file_error_text = ft.Text("", size=11, color="#CF222E", visible=False)
+    MAX_SIZE = 5 * 1024 * 1024  # 5 MB
+
+    def render_uploaded_files():
+        files_column.controls.clear()
+        for f in uploaded_files:
+            kb = f["size"] / 1024
+            size_str = f"{kb:.0f} KB" if kb < 1024 else f"{kb / 1024:.1f} MB"
+            ext = f["name"].rsplit(".", 1)[-1].lower()
+            icon = ft.Icons.PICTURE_AS_PDF if ext == "pdf" else ft.Icons.IMAGE_OUTLINED
+            files_column.controls.append(
+                ft.Container(
+                    content=ft.Row(
+                        controls=[
+                            ft.Icon(icon, size=15, color=pal.accent),
+                            ft.Text(f["name"], size=12, color=pal.text_title, weight=ft.FontWeight.W_500),
+                            ft.Text(f"({size_str})", size=11, color=pal.text_muted),
+                            ft.Container(expand=True),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                icon_size=14,
+                                icon_color="#CF222E",
+                                tooltip="Remove",
+                                padding=0,
+                                width=18,
+                                height=18,
+                                on_click=lambda e, path=f["path"]: remove_uploaded(path),
+                            ),
+                        ],
+                        spacing=8,
+                    ),
+                    bgcolor=pal.surface,
+                    border=ft.Border.all(1, pal.border),
+                    border_radius=4,
+                    padding=ft.Padding.symmetric(horizontal=10, vertical=6),
+                )
+            )
+        page.update()
+
+    def remove_uploaded(path):
+        for f in list(uploaded_files):
+            if f.get("path") == path:
+                uploaded_files.remove(f)
+        render_uploaded_files()
+
+    def on_file_picked(e: ft.FilePickerResultEvent):
+        file_error_text.visible = False
+        if e.files:
+            for f in e.files:
+                if f.size > MAX_SIZE:
+                    file_error_text.value = f"'{f.name}' exceeds the 5 MB limit and was skipped."
+                    file_error_text.visible = True
+                    continue
+                if not any(item.get("path") == f.path for item in uploaded_files):
+                    uploaded_files.append({
+                        "name": f.name,
+                        "size": f.size,
+                        "path": f.path,
+                    })
+            render_uploaded_files()
+        page.update()
+
+    # In Flet 1.0.5, FilePicker is a Service — register in page.services
+    file_picker = ft.FilePicker(on_result=on_file_picked)
+    page.services.append(file_picker)
+
+    pick_action = ft.PickFiles(
+        file_picker=file_picker,
+        dialog_title="Select schedule files (Images or PDFs, max 5 MB each)",
+        allow_multiple=True,
+        file_type=ft.FilePickerFileType.CUSTOM,
+        allowed_extensions=["pdf", "png", "jpg", "jpeg", "webp"],
+    )
+
+    upload_btn = ft.Container(
+        content=ft.Row(
+            controls=[
+                ft.Icon(ft.Icons.UPLOAD_FILE, size=15, color=pal.text_title),
+                ft.Text("Attach files (Images or PDF, up to 5 MB each)", size=12, color=pal.text_title),
+            ],
+            spacing=6,
+        ),
+        bgcolor=pal.surface,
+        border=ft.Border.all(1, pal.border),
+        border_radius=4,
+        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+        ink=True,
+        action=pick_action,
+    )
+
+    # ─── Validation & Submit ─────────────────────────────────────────────────
+    error_banner = ft.Text("", size=12, color="#CF222E", visible=False)
+
+    def handle_submit(e):
+        if not skills_list:
+            error_banner.value = "Add at least one skill (type and press Enter)."
+            error_banner.visible = True
+            page.update()
+            return
+        if not (objective_input.value or "").strip():
+            error_banner.value = "Please fill in your learning objective."
+            error_banner.visible = True
+            page.update()
+            return
+        if not (background_input.value or "").strip():
+            error_banner.value = "Please describe your current background."
+            error_banner.visible = True
+            page.update()
+            return
+        sched = (schedule_input.value or "").strip()
+        if not sched and not uploaded_files:
+            error_banner.value = "Describe your schedule or attach a file."
+            error_banner.visible = True
+            page.update()
+            return
+
+        error_banner.visible = False
+
+        on_submit_plan({
+            "skills": list(skills_list),
+            "skills_raw": ", ".join(skills_list),
+            "thesis": objective_input.value.strip(),
+            "background": background_input.value.strip(),
+            "schedule": sched,
+            "files": list(uploaded_files),
+            "duration_intent": (duration_input.value or "").strip(),
+        })
+
+    # ─── Layout ──────────────────────────────────────────────────────────────
+    header = ft.Container(
         content=ft.Row(
             controls=[
                 ft.Row(
                     controls=[
-                        ft.Icon(ft.Icons.ALL_INCLUSIVE, size=20, color="#FFFFFF"),
-                        ft.Text(
-                            "NINETY EIGHT  |  PRIVATE TECHNICAL REGISTRY  |  AUTONOMOUS ADMISSIONS",
-                            size=11,
-                            weight=ft.FontWeight.W_700,
-                            color="#FFFFFF",
-                        ),
+                        ft.Text("Ninety Eight", size=14, weight=ft.FontWeight.W_600, color=pal.text_title),
+                        ft.Text("/", size=14, color=pal.text_muted),
+                        ft.Text("Study Plan Application", size=14, color=pal.text_muted),
                     ],
-                    spacing=10,
+                    spacing=6,
                 ),
                 ft.Row(
                     controls=[
+                        ft.Text(user_email, size=12, color=pal.text_muted),
                         ft.IconButton(
                             icon=ft.Icons.LIGHT_MODE_OUTLINED if is_dark else ft.Icons.DARK_MODE_OUTLINED,
-                            tooltip="Toggle Theme",
-                            icon_color="#FFFFFF",
-                            icon_size=18,
+                            icon_color=pal.text_muted,
+                            icon_size=16,
                             on_click=on_toggle_theme,
                         ),
                         ft.TextButton(
-                            content=ft.Row(
-                                controls=[
-                                    ft.Icon(ft.Icons.LOGOUT, size=14, color="#FFFFFF"),
-                                    ft.Text("Log Out", size=12, color="#FFFFFF"),
-                                ],
-                                spacing=4,
-                            ),
+                            content=ft.Text("Sign out", size=12, color=pal.text_muted),
                             on_click=on_logout,
                         ),
                     ],
@@ -61,286 +276,100 @@ def build_admissions_portal_view(
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         ),
-        bgcolor=pal.primary,
-        padding=ft.Padding.symmetric(horizontal=24, vertical=6),
+        bgcolor=pal.surface,
+        border=ft.Border(bottom=ft.BorderSide(1, pal.border)),
+        padding=ft.Padding.symmetric(horizontal=24, vertical=10),
     )
 
-    # Candidate Identification Badge
-    badge_card = ft.Container(
-        content=ft.Row(
+    def section(title, hint, control):
+        return ft.Column(
             controls=[
-                ft.Container(
-                    content=ft.Icon(ft.Icons.BADGE_OUTLINED, size=28, color=pal.primary),
-                    bgcolor=f"{pal.primary}1A",
-                    border_radius=8,
-                    padding=12,
-                ),
-                ft.Column(
-                    controls=[
-                        ft.Row(
-                            controls=[
-                                ft.Text(
-                                    f"CANDIDATE: {user_name.upper()}",
-                                    size=15,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=pal.text_title,
-                                ),
-                                ft.Container(
-                                    content=ft.Text(
-                                        "STATUS: AWAITING CURRICULUM",
-                                        size=10,
-                                        weight=ft.FontWeight.W_700,
-                                        color="#EAB308",
-                                    ),
-                                    bgcolor="#FEF9C3" if not is_dark else "#422006",
-                                    border_radius=4,
-                                    padding=ft.Padding.symmetric(horizontal=8, vertical=3),
-                                ),
-                            ],
-                            spacing=12,
-                        ),
-                        ft.Text(
-                            f"Registry Dossier: {candidate_id}  •  Credential: {user_email}",
-                            size=12,
-                            color=pal.text_muted,
-                        ),
-                    ],
-                    spacing=4,
-                    expand=True,
-                ),
+                ft.Text(title, size=13, weight=ft.FontWeight.W_600, color=pal.text_title),
+                ft.Text(hint, size=11, color=pal.text_muted) if hint else ft.Container(),
+                control,
             ],
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=16,
-        ),
-        bgcolor=pal.card,
-        border=ft.Border.all(1, pal.border),
-        border_radius=8,
-        padding=ft.Padding.all(18),
-        shadow=ft.BoxShadow(
-            spread_radius=1,
-            blur_radius=10,
-            color=pal.shadow,
-            offset=(0, 2),
-        ),
-    )
+            spacing=4,
+        )
 
-    # Core Institute Notice: Single Cursus Policy
-    policy_notice = ft.Container(
-        content=ft.Row(
+    form_card = ft.Container(
+        content=ft.Column(
             controls=[
-                ft.Icon(ft.Icons.RULE, size=22, color=pal.primary),
-                ft.Column(
+                ft.Text("Study Plan Application", size=18, weight=ft.FontWeight.BOLD, color=pal.text_title),
+                ft.Text(
+                    "Your Teacher uses these details to build your curriculum and calibrate your daily workload.",
+                    size=12,
+                    color=pal.text_muted,
+                ),
+                ft.Divider(height=1, color=pal.border),
+                error_banner,
+                section(
+                    "Skills to learn",
+                    "Type any skill and press Enter to add it as a tag.",
+                    ft.Column(controls=[skill_input, tags_row], spacing=8),
+                ),
+                section(
+                    "Learning objective",
+                    "What do you plan to build or achieve? Why these skills together?",
+                    objective_input,
+                ),
+                section(
+                    "Your background & existing skills",
+                    "What do you already know? Include any work experience, degree, or self-taught skills.",
+                    background_input,
+                ),
+                section(
+                    "Schedule & availability",
+                    "When can you study? Describe your routine and attach a calendar or timetable if you have one.",
+                    ft.Column(
+                        controls=[
+                            schedule_input,
+                            upload_btn,
+                            file_error_text,
+                            files_column,
+                        ],
+                        spacing=8,
+                    ),
+                ),
+                section(
+                    "How long do you want to take?",
+                    "Describe your ideal learning pace or any deadline that matters to you.",
+                    duration_input,
+                ),
+                ft.Divider(height=1, color=pal.border),
+                ft.Row(
                     controls=[
-                        ft.Text(
-                            "THE SINGLE-CURRICULUM CHARTER (NO COURSE-HOPPING)",
-                            size=12,
-                            weight=ft.FontWeight.W_800,
-                            color=pal.text_title,
-                        ),
-                        ft.Text(
-                            "Unlike typical learning platforms with disconnected courses, Ninety Eight operates as a private automated institution. "
-                            "You are admitted to ONE cohesive curriculum calibrated to your career thesis. All selected skills must correlate with each other. "
-                            "Once matriculated, material is strictly progressive and enforced.",
-                            size=12,
-                            color=pal.text_body,
+                        ft.Container(
+                            content=ft.Text("Submit & Generate Curriculum", size=13, weight=ft.FontWeight.W_600, color="#FFFFFF"),
+                            bgcolor=pal.primary,
+                            border_radius=4,
+                            padding=ft.Padding.symmetric(horizontal=20, vertical=11),
+                            ink=True,
+                            on_click=handle_submit,
                         ),
                     ],
-                    spacing=2,
-                    expand=True,
+                    alignment=ft.MainAxisAlignment.END,
                 ),
             ],
             spacing=14,
-            vertical_alignment=ft.CrossAxisAlignment.START,
         ),
-        bgcolor=pal.surface,
-        border=ft.Border.all(1, pal.border),
-        border_radius=8,
-        padding=ft.Padding.all(16),
-    )
-
-    # 3 Exemplary Track Cards
-    def track_card(title, skills, desc, duration, icon_name):
-        return ft.Container(
-            content=ft.Column(
-                controls=[
-                    ft.Row(
-                        controls=[
-                            ft.Icon(icon_name, size=22, color=pal.primary),
-                            ft.Text(
-                                title,
-                                size=14,
-                                weight=ft.FontWeight.BOLD,
-                                color=pal.text_title,
-                            ),
-                        ],
-                        spacing=8,
-                    ),
-                    ft.Container(
-                        content=ft.Text(
-                            skills,
-                            size=11,
-                            weight=ft.FontWeight.W_600,
-                            color=pal.primary,
-                        ),
-                        bgcolor=f"{pal.primary}12",
-                        border_radius=4,
-                        padding=ft.Padding.symmetric(horizontal=8, vertical=4),
-                    ),
-                    ft.Text(
-                        desc,
-                        size=12,
-                        color=pal.text_muted,
-                    ),
-                    ft.Divider(height=1, color=pal.border),
-                    ft.Row(
-                        controls=[
-                            ft.Icon(ft.Icons.SCHEDULE, size=14, color=pal.text_muted),
-                            ft.Text(duration, size=11, color=pal.text_muted),
-                        ],
-                        spacing=6,
-                    ),
-                ],
-                spacing=8,
-            ),
-            bgcolor=pal.card,
-            border=ft.Border.all(1, pal.border),
-            border_radius=8,
-            padding=ft.Padding.all(16),
-            expand=True,
-            shadow=ft.BoxShadow(
-                spread_radius=1,
-                blur_radius=8,
-                color=pal.shadow,
-                offset=(0, 2),
-            ),
-        )
-
-    tracks_grid = ft.Row(
-        controls=[
-            track_card(
-                "Backend & Data Systems",
-                "Python + SQL + FastAPI",
-                "Designed for production services, relational schemas, high-throughput APIs, and query optimization.",
-                "Intensive • 40 to 60 Days",
-                ft.Icons.STORAGE,
-            ),
-            track_card(
-                "Applied AI & LLM Engineering",
-                "Python + Meta Llama + Vector DBs",
-                "Agentic workflows, retrieval-augmented generation, embeddings, and fine-tuning pipelines.",
-                "Advanced • 45 to 75 Days",
-                ft.Icons.PSYCHOLOGY,
-            ),
-            track_card(
-                "Production Cloud Infrastructure",
-                "Python + Docker + CI/CD",
-                "Containerization, orchestration, pipeline testing, and reproducible local environments.",
-                "Foundational • 30 to 45 Days",
-                ft.Icons.CLOUD_SYNC,
-            ),
-        ],
-        spacing=14,
-    )
-
-    # Action Banner: Launch Formal Application / Onboarding
-    apply_cta = ft.Container(
-        content=ft.Row(
-            controls=[
-                ft.Column(
-                    controls=[
-                        ft.Text(
-                            "Ready to formulate your Study Thesis?",
-                            size=16,
-                            weight=ft.FontWeight.BOLD,
-                            color=pal.text_title,
-                        ),
-                        ft.Text(
-                            "Select an accredited track above or assemble a custom correlated skill-combo in the formal application.",
-                            size=12,
-                            color=pal.text_muted,
-                        ),
-                    ],
-                    spacing=2,
-                    expand=True,
-                ),
-                ft.Container(
-                    content=ft.Row(
-                        controls=[
-                            ft.Text(
-                                "Start Formal Application",
-                                size=14,
-                                weight=ft.FontWeight.BOLD,
-                                color="#FFFFFF",
-                            ),
-                            ft.Icon(ft.Icons.ARROW_FORWARD, size=16, color="#FFFFFF"),
-                        ],
-                        spacing=8,
-                    ),
-                    bgcolor=pal.secondary_green,
-                    border_radius=6,
-                    padding=ft.Padding.symmetric(horizontal=24, vertical=14),
-                    ink=True,
-                    on_click=lambda e: on_start_application(),
-                    shadow=ft.BoxShadow(
-                        spread_radius=1,
-                        blur_radius=10,
-                        color="#3342B72A",
-                        offset=(0, 2),
-                    ),
-                ),
-            ],
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=16,
-        ),
+        width=720,
         bgcolor=pal.card,
-        border=ft.Border.all(1.5, pal.primary),
-        border_radius=8,
-        padding=ft.Padding.all(20),
-    )
-
-    # Legal / Institutional Notice
-    disclaimer = ft.Text(
-        "Ninety Eight Percent is an autonomous private learning institute. "
-        "Credentials issued are proprietary institutional certificates awarded upon achieving >= 70% on proctored examination.",
-        size=10,
-        color=pal.text_muted,
-        text_align=ft.TextAlign.CENTER,
-    )
-
-    # Main Scrollable Body
-    content_area = ft.Container(
-        content=ft.Column(
-            controls=[
-                badge_card,
-                policy_notice,
-                ft.Row(
-                    controls=[
-                        ft.Text(
-                            "FEATURED RIGOR TRACKS (CORRELATED CURRICULA)",
-                            size=12,
-                            weight=ft.FontWeight.W_800,
-                            color=pal.text_muted,
-                        ),
-                    ],
-                ),
-                tracks_grid,
-                ft.Container(height=4),
-                apply_cta,
-                disclaimer,
-            ],
-            spacing=16,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-        ),
-        width=960,
-        padding=ft.Padding.symmetric(horizontal=16, vertical=20),
+        border=ft.Border.all(1, pal.border),
+        border_radius=6,
+        padding=ft.Padding.all(26),
     )
 
     return ft.Column(
         controls=[
-            navbar,
-            ft.Container(
-                content=content_area,
-                alignment=ft.Alignment.TOP_CENTER,
+            header,
+            ft.ListView(
+                controls=[
+                    ft.Container(
+                        content=form_card,
+                        alignment=ft.Alignment.TOP_CENTER,
+                        padding=ft.Padding.symmetric(vertical=24),
+                    )
+                ],
                 expand=True,
             ),
         ],
